@@ -143,6 +143,30 @@
 .weather-panel { padding: 18px 20px; margin-bottom: 18px; border: 1px solid #ebe9e3; border-radius: 8px; background: #fff; display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 16px 24px; }
 .weather-heading h2 { margin: 4px 0 0; color: var(--ink); font: 700 16px "Manrope", sans-serif; }
 .weather-heading p { margin: 6px 0 0; color: #8b9795; font-size: 10px; }
+.about-section { max-width: 1216px; padding: 42px 38px; margin: 0 auto 36px; display: grid; grid-template-columns: 1fr .8fr; gap: 48px; border-radius: 10px; background: #e9eee6; }
+.about-copy h2 { margin: 11px 0; color: #263f3c; font: 700 27px/1.18 "Manrope", sans-serif; }
+.about-copy p { max-width: 540px; margin: 0; color: #71807a; font-size: 12px; line-height: 1.8; }
+.about-points { display: grid; gap: 15px; align-content: center; }
+.about-points > div { display: flex; gap: 14px; padding-bottom: 13px; border-bottom: 1px solid #d6dfd5; }
+.about-points > div:last-child { padding-bottom: 0; border-bottom: 0; }
+.about-points > div > strong { color: #d1845d; font: 700 11px "Manrope", sans-serif; }
+.about-points b, .about-points small { display: block; }
+.about-points b { color: #304842; font-size: 11px; }
+.about-points small { margin-top: 4px; color: #788982; font-size: 9px; line-height: 1.5; }
+.parcel-pagination { padding: 12px 0; display: flex; justify-content: center; align-items: center; gap: 7px; }
+.parcel-pagination button { min-width: 30px; min-height: 30px; padding: 0 8px; border: 1px solid #e5e8e2; border-radius: 5px; background: #fff; color: #667676; font-size: 10px; }
+.parcel-pagination button:hover:not(:disabled), .parcel-pagination button.is-current { border-color: var(--green); background: var(--green); color: #fff; }
+.parcel-pagination button:disabled { opacity: .45; cursor: not-allowed; }
+.pagination-numbers { display: flex; gap: 5px; }
+.pagination-summary { margin-left: 8px; color: #929e9c; font-size: 9px; white-space: nowrap; }
+
+@media (max-width: 650px) {
+  .about-section { padding: 28px 22px; margin: 0 18px 25px; grid-template-columns: 1fr; gap: 24px; }
+  .about-copy h2 { font-size: 23px; }
+  .parcel-pagination { gap: 4px; flex-wrap: wrap; }
+  .parcel-pagination button { min-width: 28px; min-height: 28px; padding: 0 6px; }
+  .pagination-summary { width: 100%; margin: 2px 0 0; text-align: center; }
+}
 .weather-form label { display: block; margin-bottom: 6px; color: #59696c; font-size: 9px; font-weight: 700; }
 .weather-input-row { display: flex; gap: 8px; }
 .weather-input-row input { min-width: 0; min-height: 36px; flex: 1; padding: 0 10px; border: 1px solid #e5e7e2; border-radius: 5px; outline: none; color: var(--ink); font-size: 10px; }

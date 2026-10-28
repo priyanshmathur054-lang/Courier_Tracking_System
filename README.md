@@ -34,7 +34,7 @@ MERN based courier booking and parcel tracking app. Customers can register, book
    npm run seed:admin
    ```
 
-   The seed command adds the Booked, Complete, and Reject examples if those demo tracking numbers do not already exist, preserving other parcel records. Demo couriers are used unless `COURIERS_JSON` is set in `backend/.env`. Configure that value as a JSON array with each courier's `code`, `name`, `phone`, and `vehicleType` (`Bike`, `Van`, or `Truck`). Keep at least one active courier for each vehicle class you want to book; booking assigns the least-loaded courier with enough capacity.
+   The seed command adds one demo parcel for each supported status if those tracking numbers do not already exist, preserving other parcel records. Demo couriers are used unless `COURIERS_JSON` is set in `backend/.env`. Configure that value as a JSON array with each courier's `code`, `name`, `phone`, and `vehicleType` (`Bike`, `Van`, or `Truck`). Keep at least one active courier for each vehicle class you want to book; booking assigns the least-loaded courier with enough capacity.
 
 3. Start the API in the `backend` directory:
 

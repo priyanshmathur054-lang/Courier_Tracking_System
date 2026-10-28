@@ -27,6 +27,7 @@ const STATUS_FILTERS = [
   "Cancelled",
   "Reject",
 ];
+const PAGE_SIZE = 5;
 
 const EMPTY_FORM = {
   senderName: "",
@@ -60,6 +61,7 @@ export default function AdminDashboard() {
   const [message, setMessage] = useState("");
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
   const [courierForms, setCourierForms] = useState({});
   const [couriers, setCouriers] = useState([]);
   const [weatherCity, setWeatherCity] = useState("");
@@ -107,6 +109,35 @@ export default function AdminDashboard() {
       });
     return () => {
       active = false;
+    };
+  }, [fetchParcels]);
+
+  useEffect(() => {
+    let active = true;
+    let refreshing = false;
+    const intervalId = window.setInterval(async () => {
+      if (refreshing) return;
+      refreshing = true;
+      try {
+        const response = await fetchParcels();
+        if (active) {
+          setParcels(response.data.parcels);
+          setError("");
+        }
+      } catch (requestError) {
+        if (active) {
+          setError(
+            requestError.response?.data?.message ||
+              "Unable to refresh parcel statuses.",
+          );
+        }
+      } finally {
+        refreshing = false;
+      }
+    }, 5000);
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
     };
   }, [fetchParcels]);
 
@@ -240,6 +271,12 @@ export default function AdminDashboard() {
     const statusMatches = !statusFilter || parcel.status === statusFilter;
     return statusMatches && text.includes(query.toLowerCase());
   });
+  const pageCount = Math.ceil(filteredParcels.length / PAGE_SIZE);
+  const visiblePage = Math.min(currentPage, Math.max(pageCount, 1));
+  const visibleParcels = filteredParcels.slice(
+    (visiblePage - 1) * PAGE_SIZE,
+    visiblePage * PAGE_SIZE,
+  );
   const activeCount = parcels.filter(
     (parcel) => !["Delivered", "Complete", "Cancelled", "Reject"].includes(parcel.status),
   ).length;
@@ -319,14 +356,14 @@ export default function AdminDashboard() {
         )}
 
         <section className="shipments-panel">
-          <div className="panel-heading"><div><span className="dashboard-overline">YOUR SHIPMENTS</span><h2>{isAdmin ? "All parcels" : "Recent parcels"}</h2></div><div className="shipment-filters"><label className="table-search"><span>⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search shipments" aria-label="Search shipments" /></label><select className="status-filter" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filter shipments by status"><option value="">All statuses</option>{STATUS_FILTERS.map((status) => <option key={status} value={status}>{status}</option>)}</select></div></div>
+          <div className="panel-heading"><div><span className="dashboard-overline">YOUR SHIPMENTS</span><h2>{isAdmin ? "All parcels" : "Recent parcels"}</h2></div><div className="shipment-filters"><label className="table-search"><span>⌕</span><input value={query} onChange={(event) => { setQuery(event.target.value); setCurrentPage(1); }} placeholder="Search shipments" aria-label="Search shipments" /></label><select className="status-filter" value={statusFilter} onChange={(event) => { setStatusFilter(event.target.value); setCurrentPage(1); }} aria-label="Filter shipments by status"><option value="">All statuses</option>{STATUS_FILTERS.map((status) => <option key={status} value={status}>{status}</option>)}</select></div></div>
           <div className="table-scroll">
             <table className="shipment-table">
               <thead><tr><th>TRACKING NUMBER</th><th>RECIPIENT</th><th>BOOKED</th><th>DESTINATION</th><th>SIZE / QTY</th><th>VEHICLE</th><th>STATUS</th><th>COURIER</th>{isAdmin && <th>UPDATE</th>}</tr></thead>
               <tbody>
                 {loading ? (
                   <tr><td colSpan={isAdmin ? 9 : 8} className="empty-cell">Loading your shipments...</td></tr>
-                ) : filteredParcels.length ? filteredParcels.map((parcel) => (
+                ) : filteredParcels.length ? visibleParcels.map((parcel) => (
                   <tr key={parcel._id}>
                     <td><Link to={`/?tracking=${encodeURIComponent(parcel.trackingNumber)}`} className="tracking-code">{parcel.trackingNumber}</Link></td>
                     <td className="recipient-cell">{parcel.receiverName}</td>
@@ -345,10 +382,7 @@ export default function AdminDashboard() {
                           >
                             <option value="">{parcel.courierName || "Select courier"}</option>
                             {couriers
-                              .filter((courier) => {
-                                const capacity = { Bike: 1, Van: 2, Truck: 3 };
-                                return capacity[courier.vehicleType] >= capacity[parcel.vehicleType || "Bike"];
-                              })
+                              .filter((courier) => courier.vehicleType === (parcel.vehicleType || "Bike"))
                               .map((courier) => (
                                 <option key={courier._id} value={courier._id}>
                                   {courier.name} · {courier.vehicleType}
@@ -371,6 +405,26 @@ export default function AdminDashboard() {
               </tbody>
             </table>
           </div>
+          {pageCount > 0 && (
+            <nav className="parcel-pagination" aria-label="Recent parcel pages">
+              <button type="button" onClick={() => setCurrentPage(visiblePage - 1)} disabled={visiblePage === 1} aria-label="Previous page">Previous</button>
+              <div className="pagination-numbers">
+                {Array.from({ length: pageCount }, (_, index) => index + 1).map((page) => (
+                  <button
+                    type="button"
+                    key={page}
+                    className={page === visiblePage ? "is-current" : ""}
+                    aria-current={page === visiblePage ? "page" : undefined}
+                    onClick={() => setCurrentPage(page)}
+                  >
+                    {page}
+                  </button>
+                ))}
+              </div>
+              <button type="button" onClick={() => setCurrentPage(visiblePage + 1)} disabled={visiblePage === pageCount} aria-label="Next page">Next</button>
+              <span className="pagination-summary">Page {visiblePage} of {pageCount}</span>
+            </nav>
+          )}
         </section>
 
         <section className="booking-panel">

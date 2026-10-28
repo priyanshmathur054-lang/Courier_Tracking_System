@@ -14,12 +14,9 @@ const getVehicleType = (packageSize, quantity) => {
 };
 
 const getAvailableCourier = async (vehicleType) => {
-  const vehicleCapacity = { Bike: 1, Van: 2, Truck: 3 };
   const eligibleCouriers = await Courier.find({
     active: true,
-    vehicleType: { $in: Object.keys(vehicleCapacity).filter(
-      (type) => vehicleCapacity[type] >= vehicleCapacity[vehicleType],
-    ) },
+    vehicleType,
   }).lean();
 
   if (!eligibleCouriers.length) {
@@ -105,13 +102,39 @@ const createParcel = async (req, res) => {
       });
     }
 
-    // Check authenticated user
     const userId = req.user?._id || req.user?.id;
-
     if (!userId) {
       return res.status(401).json({
         success: false,
         message: "Please login first.",
+      });
+    }
+
+    const normalizedParcel = {
+      senderName: senderName.trim(),
+      senderPhone: senderPhone.trim(),
+      senderAddress: senderAddress.trim(),
+      receiverName: receiverName.trim(),
+      receiverPhone: receiverPhone.trim(),
+      receiverAddress: receiverAddress.trim(),
+      packageSize,
+      quantity: parsedQuantity,
+      description: typeof description === "string" ? description.trim() : "",
+    };
+
+    const existingParcel = await Parcel.findOne({
+      ...normalizedParcel,
+      createdBy: userId,
+      isDemo: false,
+      status: "Booked",
+      createdAt: { $gte: new Date(Date.now() - 2 * 60 * 1000) },
+    }).select("trackingNumber");
+
+    if (existingParcel) {
+      return res.status(409).json({
+        success: false,
+        message: "Parcel already created",
+        trackingNumber: existingParcel.trackingNumber,
       });
     }
 
@@ -120,15 +143,7 @@ const createParcel = async (req, res) => {
 
     const parcel = await Parcel.create({
       trackingNumber: generateTrackingNumber(),
-      senderName: senderName.trim(),
-      senderPhone: senderPhone.trim(),
-      senderAddress: senderAddress.trim(),
-      receiverName: receiverName.trim(),
-      receiverPhone: receiverPhone.trim(),
-      receiverAddress: receiverAddress.trim(),
-      description: typeof description === "string" ? description.trim() : "",
-      packageSize,
-      quantity: parsedQuantity,
+      ...normalizedParcel,
       vehicleType,
       courierId: courier._id,
       courierName: courier.name,
@@ -142,7 +157,7 @@ const createParcel = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: "Courier booked successfully!",
+      message: "Parcel is created",
       parcel,
     });
   } catch (error) {
@@ -359,11 +374,10 @@ const updateCourierDetails = async (req, res) => {
       });
     }
 
-    const vehicleCapacity = { Bike: 1, Van: 2, Truck: 3 };
-    if (vehicleCapacity[courier.vehicleType] < vehicleCapacity[parcel.vehicleType]) {
+    if (courier.vehicleType !== parcel.vehicleType) {
       return res.status(400).json({
         success: false,
-        message: `${courier.vehicleType} is too small for this ${parcel.vehicleType}-class parcel.`,
+        message: `Choose a ${parcel.vehicleType} courier for this parcel.`,
       });
     }
 

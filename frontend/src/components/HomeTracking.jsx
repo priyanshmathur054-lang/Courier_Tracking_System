@@ -89,6 +89,7 @@ export default function HomeTracking() {
         </Link>
         <nav className="topnav" aria-label="Main navigation">
           <a href="#track">Track parcel</a>
+          <a href="#about-us">About us</a>
           <Link to="/login">Sign in</Link>
           <Link className="nav-cta" to="/register">Create account <span>↗</span></Link>
         </nav>
@@ -206,6 +207,19 @@ export default function HomeTracking() {
           <div><span className="feature-number">02</span><span><strong>Track in real time</strong><small>Updates at every milestone</small></span></div>
           <div><span className="feature-number">03</span><span><strong>Delivered with care</strong><small>From our hands to yours</small></span></div>
           <Link to="/register" className="feature-link">Get started <span>↗</span></Link>
+        </section>
+
+        <section className="about-section grid md:grid-cols-[1fr_.8fr]" id="about-us">
+          <div className="about-copy">
+            <span className="eyebrow">ABOUT NEXROUTE</span>
+            <h2>Every parcel deserves<br />a clear path home.</h2>
+            <p>NexRoute connects dependable couriers with the people and businesses counting on them. From booking through delivery, every shipment has a trackable journey and a team ready to move it forward.</p>
+          </div>
+          <div className="about-points">
+            <div><strong>01</strong><span><b>Built around clarity</b><small>Shipment updates stay easy to find and understand.</small></span></div>
+            <div><strong>02</strong><span><b>Handled with care</b><small>Every booking is matched with a suitable delivery vehicle.</small></span></div>
+            <div><strong>03</strong><span><b>Here for every mile</b><small>Track progress from booking to the final handoff.</small></span></div>
+          </div>
         </section>
       </main>
       <footer className="site-footer"><Link className="brand footer-brand" to="/"><span className="brand-mark">N</span><span>NEXROUTE</span></Link><span>Every parcel has a story. We get it there.</span><span>© {new Date().getFullYear()} NexRoute</span></footer>
