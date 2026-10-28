@@ -17,7 +17,25 @@ const parcelSchema = new mongoose.Schema(
     courierName: { type: String, default: "" },
     courierPhone: { type: String, default: "" },
     courierVehicle: { type: String, default: "" },
+    isDemo: { type: Boolean, default: false, index: true },
+    courierId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Courier",
+      default: null,
+      index: true,
+    },
     description: { type: String, default: "" },
+    packageSize: {
+      type: String,
+      enum: ["Small", "Medium", "Large"],
+      default: "Small"
+    },
+    quantity: { type: Number, min: 1, max: 100, default: 1 },
+    vehicleType: {
+      type: String,
+      enum: ["Bike", "Van", "Truck"],
+      default: "Bike"
+    },
     serviceType: {
       type: String,
       enum: ["Standard", "Express"],
@@ -55,8 +73,10 @@ const parcelSchema = new mongoose.Schema(
         "At Warehouse",
         "Out for Delivery",
         "Delivered",
+        "Complete",
         "Delayed",
-        "Cancelled"
+        "Cancelled",
+        "Reject"
       ],
       default: "Booked"
     },

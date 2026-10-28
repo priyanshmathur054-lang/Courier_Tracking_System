@@ -13,11 +13,25 @@ export default function Register() {
   async function handleRegister(event) {
     event.preventDefault();
     setError("");
+    if (!name.trim()) {
+      setError("Enter your full name.");
+      return;
+    }
+    if (!/^[^\s.@]+(?:\.[^\s.@]+)*@[^\s.@]+(?:\.[^\s.@]+)+$/.test(email.trim())) {
+      setError("Enter a valid email address, including the correct dots (for example, name@example.com).");
+      return;
+    }
+    if (password.length < 8) {
+      setError("Use a password with at least 8 characters.");
+      return;
+    }
     setLoading(true);
     try {
       const response = await API.post("/auth/register", { name, email, password });
-      localStorage.setItem("token", response.data.token);
-      localStorage.setItem("user", JSON.stringify(response.data.user));
+      sessionStorage.setItem("token", response.data.token);
+      sessionStorage.setItem("user", JSON.stringify(response.data.user));
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
       navigate("/dashboard");
     } catch (requestError) {
       setError(
@@ -37,7 +51,7 @@ export default function Register() {
         <h1>Make room<br />for the good stuff.</h1>
         <p className="auth-description">Create an account to book parcels and follow every delivery.</p>
         {error && <div role="alert" className="notice notice-error">{error}</div>}
-        <form onSubmit={handleRegister} className="auth-form">
+        <form onSubmit={handleRegister} className="auth-form" noValidate>
           <label>Full name<input type="text" autoComplete="name" value={name} onChange={(event) => setName(event.target.value)} placeholder="Your name" required /></label>
           <label>Email address<input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" required /></label>
           <label>Password<input type="password" autoComplete="new-password" minLength="8" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="At least 8 characters" required /></label>

@@ -9,6 +9,8 @@ const {
   trackParcel,
   updateParcelStatus,
   updateCourierDetails,
+  getCouriers,
+  checkWeather,
 } = require("../Controllers/parcelController");
 
 // Import middleware
@@ -33,6 +35,15 @@ router.get(
   protect,
   getParcels
 );
+
+router.get(
+  "/weather",
+  protect,
+  adminOnly,
+  checkWeather
+);
+
+router.get("/couriers", protect, adminOnly, getCouriers);
 
 // ======================================
 // 3. TRACK PARCEL BY TRACKING NUMBER

@@ -2,6 +2,10 @@ const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
+const isValidEmail = (email) =>
+  typeof email === "string" &&
+  /^[^\s.@]+(?:\.[^\s.@]+)*@[^\s.@]+(?:\.[^\s.@]+)+$/.test(email.trim());
+
 function makeToken(user) {
   return jwt.sign(
     {
@@ -19,12 +23,12 @@ exports.register = async (req, res) => {
 
     if (
       !name?.trim() ||
-      !email?.trim() ||
+      !isValidEmail(email) ||
       !password ||
       password.length < 8
     ) {
       return res.status(400).json({
-        message: "Name, valid email and password (8+ characters) required"
+        message: "Enter a valid email address (for example, name@example.com) and a password of at least 8 characters."
       });
     }
 
@@ -66,6 +70,12 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
+
+    if (!isValidEmail(email)) {
+      return res.status(400).json({
+        message: "Enter a valid email address (for example, name@example.com)."
+      });
+    }
 
     const user = await User.findOne({
       email: email?.trim().toLowerCase()

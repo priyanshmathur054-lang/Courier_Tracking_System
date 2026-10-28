@@ -27,14 +27,15 @@ export default function HomeTracking() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const requestTracking = useCallback((number) =>
+    API.get(`/parcels/track/${encodeURIComponent(number.trim())}`), []);
+
   const fetchTracking = useCallback(async (number) => {
     setError("");
     setParcel(null);
     setLoading(true);
     try {
-      const response = await API.get(
-        `/parcels/track/${encodeURIComponent(number.trim())}`,
-      );
+      const response = await requestTracking(number);
       setParcel(response.data.parcel);
     } catch (requestError) {
       setError(
@@ -44,13 +45,33 @@ export default function HomeTracking() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [requestTracking]);
 
   useEffect(() => {
-    if (sharedTrackingNumber) {
-      fetchTracking(sharedTrackingNumber);
-    }
-  }, [fetchTracking, sharedTrackingNumber]);
+    if (!sharedTrackingNumber) return undefined;
+    let active = true;
+    requestTracking(sharedTrackingNumber)
+      .then((response) => {
+        if (active) {
+          setError("");
+          setParcel(response.data.parcel);
+        }
+      })
+      .catch((requestError) => {
+        if (active) {
+          setError(
+            requestError.response?.data?.message ||
+              "Tracking is unavailable right now. Please try again.",
+          );
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [requestTracking, sharedTrackingNumber]);
 
   async function handleTrack(event) {
     event.preventDefault();

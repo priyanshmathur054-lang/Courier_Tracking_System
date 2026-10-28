@@ -12,11 +12,21 @@ export default function Login() {
   async function handleLogin(event) {
     event.preventDefault();
     setError("");
+    if (!/^[^\s.@]+(?:\.[^\s.@]+)*@[^\s.@]+(?:\.[^\s.@]+)+$/.test(email.trim())) {
+      setError("Enter a valid email address, including the correct dots (for example, name@example.com).");
+      return;
+    }
+    if (!password) {
+      setError("Enter your password to sign in.");
+      return;
+    }
     setLoading(true);
     try {
       const response = await API.post("/auth/login", { email, password });
-      localStorage.setItem("token", response.data.token);
-      localStorage.setItem("user", JSON.stringify(response.data.user));
+      sessionStorage.setItem("token", response.data.token);
+      sessionStorage.setItem("user", JSON.stringify(response.data.user));
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
       navigate("/dashboard");
     } catch (requestError) {
       setError(
@@ -36,7 +46,7 @@ export default function Login() {
         <h1>Your shipments<br />are waiting.</h1>
         <p className="auth-description">Sign in to book a delivery or check on your parcels.</p>
         {error && <div role="alert" className="notice notice-error">{error}</div>}
-        <form onSubmit={handleLogin} className="auth-form">
+        <form onSubmit={handleLogin} className="auth-form" noValidate>
           <label>Email address<input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" required /></label>
           <label>Password<input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Enter your password" required /></label>
           <button type="submit" className="primary-button auth-submit" disabled={loading}>{loading ? "Signing in..." : "Sign in"} <span>→</span></button>

@@ -5,7 +5,7 @@ import Login from "./components/Login";
 import Register from "./components/Register";
 
 function ProtectedDashboard() {
-  return localStorage.getItem("token") ? (
+  return sessionStorage.getItem("token") ? (
     <AdminDashboard />
   ) : (
     <Navigate to="/login" replace />

@@ -13,15 +13,19 @@ const checkRain = async (city) => {
       timeout: 5000,
     },
   );
-  const weatherCondition = response.data.weather?.[0]?.main?.toLowerCase() || "";
+  const weather = response.data.weather?.[0];
+  const weatherCondition = weather?.main?.toLowerCase() || "";
   const rainy =
     weatherCondition.includes("rain") ||
     weatherCondition.includes("thunderstorm");
 
   return {
+    city: response.data.name || city,
+    condition: weather?.description || weather?.main || "Unknown",
+    temperatureC: response.data.main?.temp ?? null,
     rainy,
     message: rainy
-      ? `Rain is forecast in ${city}. Delivery may take longer.`
+      ? `Rain is currently reported in ${response.data.name || city}. Delivery may take longer.`
       : "",
     configured: true,
   };

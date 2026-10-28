@@ -9,8 +9,23 @@ const STATUSES = [
   "At Warehouse",
   "Out for Delivery",
   "Delivered",
+  "Complete",
   "Delayed",
   "Cancelled",
+  "Reject",
+];
+
+const STATUS_FILTERS = [
+  "Booked",
+  "Picked Up",
+  "In Transit",
+  "At Warehouse",
+  "Out for Delivery",
+  "Delivered",
+  "Complete",
+  "Delayed",
+  "Cancelled",
+  "Reject",
 ];
 
 const EMPTY_FORM = {
@@ -21,11 +36,13 @@ const EMPTY_FORM = {
   receiverPhone: "",
   receiverAddress: "",
   description: "",
+  packageSize: "Small",
+  quantity: 1,
 };
 
 function readUser() {
   try {
-    return JSON.parse(localStorage.getItem("user") || "{}");
+    return JSON.parse(sessionStorage.getItem("user") || "{}");
   } catch {
     return {};
   }
@@ -42,13 +59,21 @@ export default function AdminDashboard() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [courierForms, setCourierForms] = useState({});
+  const [couriers, setCouriers] = useState([]);
+  const [weatherCity, setWeatherCity] = useState("");
+  const [weather, setWeather] = useState(null);
+  const [weatherLoading, setWeatherLoading] = useState(false);
+  const [weatherError, setWeatherError] = useState("");
+
+  const fetchParcels = useCallback(() => API.get("/parcels"), []);
 
   const loadParcels = useCallback(async () => {
     setError("");
     setLoading(true);
     try {
-      const response = await API.get("/parcels");
+      const response = await fetchParcels();
       setParcels(response.data.parcels);
     } catch (requestError) {
       setError(
@@ -58,13 +83,56 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [fetchParcels]);
 
   useEffect(() => {
-    loadParcels();
-  }, [loadParcels]);
+    let active = true;
+    fetchParcels()
+      .then((response) => {
+        if (active) {
+          setError("");
+          setParcels(response.data.parcels);
+        }
+      })
+      .catch((requestError) => {
+        if (active) {
+          setError(
+            requestError.response?.data?.message ||
+              "Unable to load parcels. Please check your connection and try again.",
+          );
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [fetchParcels]);
+
+  useEffect(() => {
+    if (!isAdmin) return undefined;
+    let active = true;
+    API.get("/parcels/couriers")
+      .then((response) => {
+        if (active) setCouriers(response.data.couriers);
+      })
+      .catch((requestError) => {
+        if (active) {
+          setError(
+            requestError.response?.data?.message ||
+              "Unable to load the courier roster.",
+          );
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [isAdmin]);
 
   function logout() {
+    sessionStorage.removeItem("token");
+    sessionStorage.removeItem("user");
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     navigate("/login");
@@ -114,30 +182,17 @@ export default function AdminDashboard() {
     }
   }
 
-  function changeCourierField(parcelId, field, value) {
-    const parcel = parcels.find((item) => item._id === parcelId);
-    setCourierForms((current) => ({
-      ...current,
-      [parcelId]: {
-        courierName: current[parcelId]?.courierName ?? parcel?.courierName ?? "",
-        courierPhone: current[parcelId]?.courierPhone ?? parcel?.courierPhone ?? "",
-        courierVehicle: current[parcelId]?.courierVehicle ?? parcel?.courierVehicle ?? "",
-        [field]: value,
-      },
-    }));
+  function changeCourier(parcelId, courierId) {
+    setCourierForms((current) => ({ ...current, [parcelId]: courierId }));
   }
 
   async function saveCourier(parcelId) {
-    const parcel = parcels.find((item) => item._id === parcelId);
-    const courier = courierForms[parcelId] || {
-      courierName: parcel?.courierName || "",
-      courierPhone: parcel?.courierPhone || "",
-      courierVehicle: parcel?.courierVehicle || "",
-    };
+    const courierId = courierForms[parcelId];
+    if (!courierId) return;
     setError("");
     setMessage("");
     try {
-      const response = await API.patch(`/parcels/${parcelId}/courier`, courier);
+      const response = await API.patch(`/parcels/${parcelId}/courier`, { courierId });
       setParcels((current) =>
         current.map((item) => item._id === parcelId ? response.data.parcel : item),
       );
@@ -155,14 +210,37 @@ export default function AdminDashboard() {
     }
   }
 
+  async function handleWeatherCheck(event) {
+    event.preventDefault();
+    setWeatherError("");
+    setWeather(null);
+    setWeatherLoading(true);
+    try {
+      const response = await API.get("/parcels/weather", {
+        params: { city: weatherCity.trim() },
+      });
+      setWeather(response.data.weather);
+    } catch (requestError) {
+      setWeatherError(
+        requestError.response?.data?.message ||
+          "Unable to check weather right now. Please try again.",
+      );
+    } finally {
+      setWeatherLoading(false);
+    }
+  }
+
   const filteredParcels = parcels.filter((parcel) => {
     const text = `${parcel.trackingNumber} ${parcel.receiverName} ${parcel.receiverAddress} ${parcel.status}`.toLowerCase();
-    return text.includes(query.toLowerCase());
+    const statusMatches = !statusFilter || parcel.status === statusFilter;
+    return statusMatches && text.includes(query.toLowerCase());
   });
   const activeCount = parcels.filter(
-    (parcel) => !["Delivered", "Cancelled"].includes(parcel.status),
+    (parcel) => !["Delivered", "Complete", "Cancelled", "Reject"].includes(parcel.status),
   ).length;
-  const deliveredCount = parcels.filter((parcel) => parcel.status === "Delivered").length;
+  const deliveredCount = parcels.filter((parcel) => ["Delivered", "Complete"].includes(parcel.status)).length;
+  const bookedCount = parcels.filter((parcel) => parcel.status === "Booked").length;
+  const cancelledCount = parcels.filter((parcel) => ["Cancelled", "Reject"].includes(parcel.status)).length;
 
   return (
     <div className="dashboard-shell">
@@ -192,50 +270,89 @@ export default function AdminDashboard() {
         {error && <div role="alert" className="notice notice-error">{error}</div>}
         {message && <div role="status" className="notice notice-success">{message}</div>}
 
-        <section className="stats-grid">
+        <section className={`stats-grid${isAdmin ? " admin-stats-grid" : ""}`}>
           <article className="stat-card"><span className="stat-icon">▧</span><span className="stat-label">TOTAL SHIPMENTS</span><strong>{parcels.length}</strong><small>All your booked parcels</small></article>
           <article className="stat-card"><span className="stat-icon icon-orange">↗</span><span className="stat-label">IN PROGRESS</span><strong>{activeCount}</strong><small>Currently on their way</small></article>
-          <article className="stat-card"><span className="stat-icon icon-green">✓</span><span className="stat-label">DELIVERED</span><strong>{deliveredCount}</strong><small>Safely at their destination</small></article>
+          {isAdmin && <article className="stat-card"><span className="stat-icon">＋</span><span className="stat-label">BOOKED</span><strong>{bookedCount}</strong><small>Awaiting pickup</small></article>}
+          <article className="stat-card"><span className="stat-icon icon-green">✓</span><span className="stat-label">{isAdmin ? "COMPLETED" : "DELIVERED"}</span><strong>{deliveredCount}</strong><small>Safely at their destination</small></article>
+          {isAdmin && <article className="stat-card"><span className="stat-icon icon-orange">×</span><span className="stat-label">CANCELLED / REJECTED</span><strong>{cancelledCount}</strong><small>Cancelled shipments</small></article>}
         </section>
 
+        {isAdmin && (
+          <section className="weather-panel">
+            <div className="weather-heading">
+              <span className="dashboard-overline">DELIVERY CONDITIONS</span>
+              <h2>Weather check</h2>
+              <p>Check current weather and rain alerts for a destination city.</p>
+            </div>
+            <form className="weather-form" onSubmit={handleWeatherCheck}>
+              <label htmlFor="weather-city">Destination city</label>
+              <div className="weather-input-row">
+                <input
+                  id="weather-city"
+                  value={weatherCity}
+                  onChange={(event) => setWeatherCity(event.target.value)}
+                  placeholder="e.g. Mumbai"
+                  required
+                />
+                <button type="submit" disabled={weatherLoading || !weatherCity.trim()}>
+                  {weatherLoading ? "Checking..." : "Check weather"}
+                </button>
+              </div>
+            </form>
+            {weatherError && <p role="alert" className="weather-error">{weatherError}</p>}
+            {weather && (
+              <div role="status" className="weather-result">
+                <strong>{weather.city}</strong>
+                <span>{weather.condition} · {weather.temperatureC ?? "—"}°C</span>
+                <p className={weather.rainy ? "weather-rain-alert" : ""}>
+                  {weather.message || "No rain currently reported."}
+                </p>
+              </div>
+            )}
+          </section>
+        )}
+
         <section className="shipments-panel">
-          <div className="panel-heading"><div><span className="dashboard-overline">YOUR SHIPMENTS</span><h2>{isAdmin ? "All parcels" : "Recent parcels"}</h2></div><label className="table-search"><span>⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search shipments" aria-label="Search shipments" /></label></div>
+          <div className="panel-heading"><div><span className="dashboard-overline">YOUR SHIPMENTS</span><h2>{isAdmin ? "All parcels" : "Recent parcels"}</h2></div><div className="shipment-filters"><label className="table-search"><span>⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search shipments" aria-label="Search shipments" /></label><select className="status-filter" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filter shipments by status"><option value="">All statuses</option>{STATUS_FILTERS.map((status) => <option key={status} value={status}>{status}</option>)}</select></div></div>
           <div className="table-scroll">
             <table className="shipment-table">
-              <thead><tr><th>TRACKING NUMBER</th><th>RECIPIENT</th><th>BOOKED</th><th>DESTINATION</th><th>STATUS</th><th>COURIER</th>{isAdmin && <th>UPDATE</th>}</tr></thead>
+              <thead><tr><th>TRACKING NUMBER</th><th>RECIPIENT</th><th>BOOKED</th><th>DESTINATION</th><th>SIZE / QTY</th><th>VEHICLE</th><th>STATUS</th><th>COURIER</th>{isAdmin && <th>UPDATE</th>}</tr></thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={isAdmin ? 7 : 6} className="empty-cell">Loading your shipments...</td></tr>
+                  <tr><td colSpan={isAdmin ? 9 : 8} className="empty-cell">Loading your shipments...</td></tr>
                 ) : filteredParcels.length ? filteredParcels.map((parcel) => (
                   <tr key={parcel._id}>
                     <td><Link to={`/?tracking=${encodeURIComponent(parcel.trackingNumber)}`} className="tracking-code">{parcel.trackingNumber}</Link></td>
                     <td className="recipient-cell">{parcel.receiverName}</td>
                     <td>{parcel.createdAt ? new Date(parcel.createdAt).toLocaleDateString() : "—"}</td>
                     <td>{parcel.receiverAddress}</td>
+                    <td>{parcel.packageSize || "Small"} / {parcel.quantity || 1}</td>
+                    <td>{parcel.vehicleType || "Bike"}</td>
                     <td><span className={`status-pill status-${parcel.status.toLowerCase().replaceAll(" ", "-")}`}><span className="status-dot" />{parcel.status}</span></td>
                     <td>
                       {isAdmin ? (
                         <div className="courier-assignment">
-                          <input
+                          <select
                             aria-label={`Courier name for ${parcel.trackingNumber}`}
-                            placeholder="Courier name"
-                            value={courierForms[parcel._id]?.courierName ?? parcel.courierName ?? ""}
-                            onChange={(event) => changeCourierField(parcel._id, "courierName", event.target.value)}
-                          />
-                          <input
-                            aria-label={`Courier phone for ${parcel.trackingNumber}`}
-                            type="tel"
-                            placeholder="Phone number"
-                            value={courierForms[parcel._id]?.courierPhone ?? parcel.courierPhone ?? ""}
-                            onChange={(event) => changeCourierField(parcel._id, "courierPhone", event.target.value)}
-                          />
-                          <input
-                            aria-label={`Courier vehicle for ${parcel.trackingNumber}`}
-                            placeholder="Vehicle (optional)"
-                            value={courierForms[parcel._id]?.courierVehicle ?? parcel.courierVehicle ?? ""}
-                            onChange={(event) => changeCourierField(parcel._id, "courierVehicle", event.target.value)}
-                          />
-                          <button type="button" onClick={() => saveCourier(parcel._id)}>Save</button>
+                            value={courierForms[parcel._id] ?? parcel.courierId ?? ""}
+                            onChange={(event) => changeCourier(parcel._id, event.target.value)}
+                          >
+                            <option value="">{parcel.courierName || "Select courier"}</option>
+                            {couriers
+                              .filter((courier) => {
+                                const capacity = { Bike: 1, Van: 2, Truck: 3 };
+                                return capacity[courier.vehicleType] >= capacity[parcel.vehicleType || "Bike"];
+                              })
+                              .map((courier) => (
+                                <option key={courier._id} value={courier._id}>
+                                  {courier.name} · {courier.vehicleType}
+                                </option>
+                              ))}
+                          </select>
+                          <button type="button" onClick={() => saveCourier(parcel._id)} disabled={!courierForms[parcel._id]}>
+                            Assign
+                          </button>
                         </div>
                       ) : parcel.courierName ? (
                         <span className="courier-summary">{parcel.courierName}<small>{parcel.courierPhone}</small></span>
@@ -244,7 +361,7 @@ export default function AdminDashboard() {
                     {isAdmin && <td><select className="status-select" aria-label={`Update ${parcel.trackingNumber} status`} value={parcel.status} onChange={(event) => changeStatus(parcel._id, event.target.value)}>{STATUSES.map((status) => <option key={status}>{status}</option>)}</select></td>}
                   </tr>
                 )) : (
-                  <tr><td colSpan={isAdmin ? 7 : 6} className="empty-cell">{query ? "No shipments match your search." : "No parcels yet. Book your first delivery below."}</td></tr>
+                  <tr><td colSpan={isAdmin ? 9 : 8} className="empty-cell">{query || statusFilter ? "No shipments match these filters." : "No parcels yet. Book your first delivery below."}</td></tr>
                 )}
               </tbody>
             </table>
@@ -266,6 +383,8 @@ export default function AdminDashboard() {
               <label>Recipient name<input name="receiverName" value={formData.receiverName} onChange={changeField} placeholder="Full name" required /></label>
               <label>Phone number<input name="receiverPhone" type="tel" value={formData.receiverPhone} onChange={changeField} placeholder="+91 98765 43210" required /></label>
               <label className="form-span">Delivery address<input name="receiverAddress" value={formData.receiverAddress} onChange={changeField} placeholder="Street, city, state" required /></label>
+              <label>Parcel size<select name="packageSize" value={formData.packageSize} onChange={changeField}><option>Small</option><option>Medium</option><option>Large</option></select></label>
+              <label>Quantity<input name="quantity" type="number" min="1" max="100" step="1" value={formData.quantity} onChange={changeField} required /></label>
               <label className="form-span">Parcel note <textarea name="description" value={formData.description} onChange={changeField} placeholder="Optional package description or delivery notes" rows="3" /></label>
               
             </div>
