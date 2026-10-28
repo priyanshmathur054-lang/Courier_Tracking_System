@@ -152,7 +152,7 @@ export default function AdminDashboard() {
     try {
       const response = await API.post("/parcels", formData);
       const trackingNumber = response.data.parcel.trackingNumber;
-      setMessage(`Parcel booked. Tracking number: ${trackingNumber}`);
+      setMessage(`${response.data.message} Tracking number: ${trackingNumber}`);
       setFormData(EMPTY_FORM);
       await loadParcels();
     } catch (requestError) {
@@ -165,14 +165,19 @@ export default function AdminDashboard() {
     }
   }
 
-  async function changeStatus(parcelId, status) {
+  async function changeStatus(parcelId, status, note = "") {
     setError("");
     try {
-      const response = await API.patch(`/parcels/${parcelId}/status`, { status });
+      const response = await API.patch(`/parcels/${parcelId}/status`, { status, note });
       setParcels((current) =>
         current.map((parcel) =>
           parcel._id === parcelId ? response.data.parcel : parcel,
         ),
+      );
+      setMessage(
+        status === "Picked Up" && note
+          ? "Parcel accepted. Status changed to Picked Up."
+          : "Parcel status updated.",
       );
     } catch (requestError) {
       setError(
@@ -358,7 +363,7 @@ export default function AdminDashboard() {
                         <span className="courier-summary">{parcel.courierName}<small>{parcel.courierPhone}</small></span>
                       ) : "Not assigned"}
                     </td>
-                    {isAdmin && <td><select className="status-select" aria-label={`Update ${parcel.trackingNumber} status`} value={parcel.status} onChange={(event) => changeStatus(parcel._id, event.target.value)}>{STATUSES.map((status) => <option key={status}>{status}</option>)}</select></td>}
+                    {isAdmin && <td><div className="status-actions"><select className="status-select" aria-label={`Update ${parcel.trackingNumber} status`} value={parcel.status} onChange={(event) => changeStatus(parcel._id, event.target.value)}>{STATUSES.map((status) => <option key={status}>{status}</option>)}</select>{parcel.status === "Booked" && <button className="accept-parcel-button" type="button" onClick={() => changeStatus(parcel._id, "Picked Up", "Parcel accepted for pickup.")}>Accept</button>}</div></td>}
                   </tr>
                 )) : (
                   <tr><td colSpan={isAdmin ? 9 : 8} className="empty-cell">{query || statusFilter ? "No shipments match these filters." : "No parcels yet. Book your first delivery below."}</td></tr>

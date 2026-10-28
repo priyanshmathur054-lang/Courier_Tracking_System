@@ -6,7 +6,7 @@ const mongoose = require("mongoose");
 const { checkRain } = require("../utils/weather");
 
 const getVehicleType = (packageSize, quantity) => {
-  const sizeUnits = { Small: 1, Medium: 2, Large: 4 };
+  const sizeUnits = { Small: 1, Medium: 4, Large: 13 };
   const totalUnits = sizeUnits[packageSize] * quantity;
   if (totalUnits <= 3) return "Bike";
   if (totalUnits <= 12) return "Van";
@@ -86,14 +86,14 @@ const createParcel = async (req, res) => {
     ) {
       return res.status(400).json({
         success: false,
-        message: "Please fill all required parcel fields.",
+        message: "Parcel invalid. Please fill all required parcel fields.",
       });
     }
 
     if (!Object.hasOwn({ Small: true, Medium: true, Large: true }, packageSize)) {
       return res.status(400).json({
         success: false,
-        message: "Choose a valid parcel size.",
+        message: "Parcel invalid. Choose a valid parcel size.",
       });
     }
 
@@ -101,7 +101,7 @@ const createParcel = async (req, res) => {
     if (!Number.isInteger(parsedQuantity) || parsedQuantity < 1 || parsedQuantity > 100) {
       return res.status(400).json({
         success: false,
-        message: "Parcel quantity must be a whole number between 1 and 100.",
+        message: "Parcel invalid. Quantity must be a whole number between 1 and 100.",
       });
     }
 
@@ -148,6 +148,20 @@ const createParcel = async (req, res) => {
   } catch (error) {
     console.error("Create parcel error:", error);
 
+    if (error.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: "Parcel already created. Please refresh the parcel list.",
+      });
+    }
+
+    if (error.name === "ValidationError") {
+      return res.status(400).json({
+        success: false,
+        message: "Parcel invalid. Please check the parcel details and try again.",
+      });
+    }
+
     if (error.statusCode) {
       return res.status(error.statusCode).json({
         success: false,
@@ -193,7 +207,7 @@ const getParcels = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      count: parcels.length,
+      message: "New parcel created successfully.",
       parcels,
     });
   } catch (error) {
